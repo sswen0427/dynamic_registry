@@ -13,7 +13,7 @@ The user provides:
 
 ```text
 extension/custom_ops.cpp    C++ extension with user-defined registered funcs
-example_user_code.py        Python code that loads the plugin and calls ops
+example.py                  Python code that loads the plugin and calls ops
 ```
 
 ## Build And Run
@@ -21,7 +21,7 @@ example_user_code.py        Python code that loads the plugin and calls ops
 ```bash
 cd tools/dynamic_registry_demo
 sh build.sh
-python3 example_user_code.py
+python3 example.py
 ```
 
 The build script is a thin wrapper around CMake:
@@ -34,8 +34,11 @@ cmake --build build
 Expected output:
 
 ```text
-42
-0.75
+registered ops:
+  add_int	int_binary	add_int(int left, int right) -> int
+  add_float	float_binary	add_float(float left, float right) -> float
+ops.add_int(40, 2) = 42
+ops.add_float(0.5, 0.25) = 0.75
 ```
 
 ## User Extension
@@ -75,8 +78,12 @@ sys.path.insert(0, str(root / "lib"))
 
 from dynamic_ops import Ops
 
-ops = Ops(root / "build/libdynamic_ops_registry.so")
-ops.load_plugin(root / "build/libcustom_ops.so")
+build = root / "build"
+ops = Ops(build / "libdynamic_ops_registry.so")
+ops.load_plugin(build / "libcustom_ops.so")
+
+for op in ops.list_ops():
+    print(op)
 
 print(ops.add_int(40, 2))
 print(ops.add_float(0.5, 0.25))
