@@ -34,6 +34,16 @@ std::string ParseOpName(const std::string& schema) {
   return schema.substr(0, args_start);
 }
 
+const char* KindName(OpKind kind) {
+  if (kind == OpKind::kIntBinary) {
+    return "int_binary";
+  }
+  if (kind == OpKind::kFloatBinary) {
+    return "float_binary";
+  }
+  return "undefined";
+}
+
 }  // namespace
 
 Registry& Registry::Instance() {
@@ -41,19 +51,36 @@ Registry& Registry::Instance() {
   return registry;
 }
 
-void Registry::RegisterIntBinary(const std::string& name,
-                                 const std::string& schema, IntBinaryFn fn) {
+void Registry::Declare(const std::string& schema) {
   std::lock_guard<std::mutex> lock(RegistryMutex());
   entries_.push_back(
-      OpEntry{name, schema, OpKind::kIntBinary, reinterpret_cast<void*>(fn)});
+      OpEntry{ParseOpName(schema), schema, OpKind::kUndefined, nullptr});
 }
 
-void Registry::RegisterFloatBinary(const std::string& name,
-                                   const std::string& schema,
-                                   FloatBinaryFn fn) {
+void Registry::RegisterImpl(const std::string& name, IntBinaryFn fn) {
   std::lock_guard<std::mutex> lock(RegistryMutex());
+  for (OpEntry& entry : entries_) {
+    if (entry.name == name) {
+      entry.kind = OpKind::kIntBinary;
+      entry.fn = reinterpret_cast<void*>(fn);
+      return;
+    }
+  }
   entries_.push_back(
-      OpEntry{name, schema, OpKind::kFloatBinary, reinterpret_cast<void*>(fn)});
+      OpEntry{name, "", OpKind::kIntBinary, reinterpret_cast<void*>(fn)});
+}
+
+void Registry::RegisterImpl(const std::string& name, FloatBinaryFn fn) {
+  std::lock_guard<std::mutex> lock(RegistryMutex());
+  for (OpEntry& entry : entries_) {
+    if (entry.name == name) {
+      entry.kind = OpKind::kFloatBinary;
+      entry.fn = reinterpret_cast<void*>(fn);
+      return;
+    }
+  }
+  entries_.push_back(
+      OpEntry{name, "", OpKind::kFloatBinary, reinterpret_cast<void*>(fn)});
 }
 
 const OpEntry* Registry::Find(const std::string& name) const {
@@ -72,12 +99,16 @@ std::vector<OpEntry> Registry::List() const {
 
 Library::Library(const std::string& name) : name_(name) {}
 
-void Library::def(const std::string& schema, IntBinaryFn fn) {
-  Registry::Instance().RegisterIntBinary(ParseOpName(schema), schema, fn);
+void Library::def(const std::string& schema) {
+  Registry::Instance().Declare(schema);
 }
 
-void Library::def(const std::string& schema, FloatBinaryFn fn) {
-  Registry::Instance().RegisterFloatBinary(ParseOpName(schema), schema, fn);
+void Library::impl(const std::string& name, IntBinaryFn fn) {
+  Registry::Instance().RegisterImpl(name, fn);
+}
+
+void Library::impl(const std::string& name, FloatBinaryFn fn) {
+  Registry::Instance().RegisterImpl(name, fn);
 }
 
 LibraryRegistrar::LibraryRegistrar(const std::string& name, InitFn init) {
@@ -164,10 +195,7 @@ int list_ops(char* output, std::size_t output_size) {
     if (i > 0) {
       stream << "\n";
     }
-    stream << entries[i].name << "\t"
-           << (entries[i].kind == dynamic_ops::OpKind::kIntBinary
-                   ? "int_binary"
-                   : "float_binary")
+    stream << entries[i].name << "\t" << dynamic_ops::KindName(entries[i].kind)
            << "\t" << entries[i].schema;
   }
   dynamic_ops::CopyMessage(stream.str(), output, output_size);

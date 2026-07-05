@@ -7,17 +7,14 @@
 #define DYNAMIC_OPS_CONCAT_IMPL(x, y) x##y
 #define DYNAMIC_OPS_CONCAT(x, y) DYNAMIC_OPS_CONCAT_IMPL(x, y)
 
-#define DYNAMIC_OPS_LIBRARY(name, m) \
-  DYNAMIC_OPS_LIBRARY_IMPL(name, m, __COUNTER__)
-
-#define DYNAMIC_OPS_LIBRARY_IMPL(name, m, uid)                     \
-  static void DYNAMIC_OPS_CONCAT(dynamic_ops_library_init_,        \
-                                 uid)(::dynamic_ops::Library & m); \
-  static ::dynamic_ops::LibraryRegistrar DYNAMIC_OPS_CONCAT(       \
-      dynamic_ops_library_registrar_, uid)(                        \
-      #name, DYNAMIC_OPS_CONCAT(dynamic_ops_library_init_, uid));  \
-  static void DYNAMIC_OPS_CONCAT(dynamic_ops_library_init_,        \
-                                 uid)(::dynamic_ops::Library & m)
+#define DYNAMIC_OPS_LIBRARY(name, m)                                    \
+  static void DYNAMIC_OPS_CONCAT(dynamic_ops_library_init_,             \
+                                 __LINE__)(::dynamic_ops::Library & m); \
+  static ::dynamic_ops::LibraryRegistrar DYNAMIC_OPS_CONCAT(            \
+      dynamic_ops_library_registrar_, __LINE__)(                        \
+      #name, DYNAMIC_OPS_CONCAT(dynamic_ops_library_init_, __LINE__));  \
+  static void DYNAMIC_OPS_CONCAT(dynamic_ops_library_init_,             \
+                                 __LINE__)(::dynamic_ops::Library & m)
 
 namespace dynamic_ops {
 
@@ -25,6 +22,7 @@ using IntBinaryFn = int (*)(int, int);
 using FloatBinaryFn = float (*)(float, float);
 
 enum class OpKind {
+  kUndefined,
   kIntBinary,
   kFloatBinary,
 };
@@ -40,10 +38,9 @@ class Registry {
  public:
   static Registry& Instance();
 
-  void RegisterIntBinary(const std::string& name, const std::string& schema,
-                         IntBinaryFn fn);
-  void RegisterFloatBinary(const std::string& name, const std::string& schema,
-                           FloatBinaryFn fn);
+  void Declare(const std::string& schema);
+  void RegisterImpl(const std::string& name, IntBinaryFn fn);
+  void RegisterImpl(const std::string& name, FloatBinaryFn fn);
 
   const OpEntry* Find(const std::string& name) const;
   std::vector<OpEntry> List() const;
@@ -58,8 +55,9 @@ class Library {
  public:
   explicit Library(const std::string& name);
 
-  void def(const std::string& schema, IntBinaryFn fn);
-  void def(const std::string& schema, FloatBinaryFn fn);
+  void def(const std::string& schema);
+  void impl(const std::string& name, IntBinaryFn fn);
+  void impl(const std::string& name, FloatBinaryFn fn);
 
  private:
   std::string name_;
