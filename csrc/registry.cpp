@@ -23,6 +23,9 @@ enum class OpKind {
 
 std::mutex& RegistryMutex();
 std::string ParseOpName(const std::string& schema);
+std::string QualifyName(const std::string& library, const std::string& name);
+std::string QualifySchema(const std::string& library,
+                          const std::string& schema);
 
 struct OpEntry {
   std::string name;
@@ -99,6 +102,20 @@ std::string ParseOpName(const std::string& schema) {
   return schema.substr(0, args_start);
 }
 
+std::string QualifyName(const std::string& library, const std::string& name) {
+  return library + "::" + name;
+}
+
+std::string QualifySchema(const std::string& library,
+                          const std::string& schema) {
+  const std::size_t args_start = schema.find('(');
+  if (args_start == std::string::npos || args_start == 0) {
+    throw std::invalid_argument("invalid op schema: " + schema);
+  }
+  return QualifyName(library, schema.substr(0, args_start)) +
+         schema.substr(args_start);
+}
+
 const char* KindName(OpKind kind) {
   if (kind == OpKind::kBoxed) {
     return "boxed";
@@ -150,33 +167,35 @@ int RunBoxedKernel(const std::string& name, const OpEntry& entry,
 Library::Library(const std::string& name) : name_(name) {}
 
 void Library::def(const std::string& schema) {
-  Registry::Instance().Declare(schema);
+  Registry::Instance().Declare(QualifySchema(name_, schema));
 }
 
 void Library::impl(const std::string& name, int (*fn)(int, int)) {
-  Registry::Instance().RegisterImpl(name, [fn](Stack* stack) {
-    const int left = stack->at(0).int_value;
-    const int right = stack->at(1).int_value;
-    stack->clear();
+  Registry::Instance().RegisterImpl(QualifyName(name_, name),
+                                    [fn](Stack* stack) {
+                                      const int left = stack->at(0).int_value;
+                                      const int right = stack->at(1).int_value;
+                                      stack->clear();
 
-    DynamicValue output;
-    output.kind = DYNAMIC_OPS_INT;
-    output.int_value = fn(left, right);
-    stack->push_back(output);
-  });
+                                      DynamicValue output;
+                                      output.kind = DYNAMIC_OPS_INT;
+                                      output.int_value = fn(left, right);
+                                      stack->push_back(output);
+                                    });
 }
 
 void Library::impl(const std::string& name, float (*fn)(float, float)) {
-  Registry::Instance().RegisterImpl(name, [fn](Stack* stack) {
-    const float left = stack->at(0).float_value;
-    const float right = stack->at(1).float_value;
-    stack->clear();
+  Registry::Instance().RegisterImpl(
+      QualifyName(name_, name), [fn](Stack* stack) {
+        const float left = stack->at(0).float_value;
+        const float right = stack->at(1).float_value;
+        stack->clear();
 
-    DynamicValue output;
-    output.kind = DYNAMIC_OPS_FLOAT;
-    output.float_value = fn(left, right);
-    stack->push_back(output);
-  });
+        DynamicValue output;
+        output.kind = DYNAMIC_OPS_FLOAT;
+        output.float_value = fn(left, right);
+        stack->push_back(output);
+      });
 }
 
 LibraryRegistrar::LibraryRegistrar(const std::string& name, InitFn init) {

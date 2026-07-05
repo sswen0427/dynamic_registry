@@ -22,6 +22,15 @@ class _DynamicValue(ctypes.Structure):
     ]
 
 
+class _Namespace:
+    def __init__(self, ops, namespace):
+        self._ops = ops
+        self._namespace = namespace
+
+    def __getattr__(self, name):
+        return self._ops._get_op(f"{self._namespace}::{name}")
+
+
 class Ops:
     def __init__(self, registry_so: Union[str, Path]):
         self._lib = ctypes.CDLL(str(registry_so))
@@ -40,7 +49,16 @@ class Ops:
         return [] if not text else text.splitlines()
 
     def __getattr__(self, name):
-        registered = {item.split("\t", 1)[0]: item for item in self.list_ops()}
+        namespaces = {item.split("::", 1)[0] for item in self._registered_ops()}
+        if name in namespaces:
+            return _Namespace(self, name)
+        return self._get_op(name)
+
+    def _registered_ops(self):
+        return {item.split("\t", 1)[0]: item for item in self.list_ops()}
+
+    def _get_op(self, name):
+        registered = self._registered_ops()
         if name not in registered:
             raise AttributeError(f"op not found: {name}")
 

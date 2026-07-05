@@ -35,10 +35,10 @@ Expected output:
 
 ```text
 registered ops:
-  add_int	boxed	add_int(int left, int right) -> int
-  add_float	boxed	add_float(float left, float right) -> float
-ops.add_int(40, 2) = 42
-ops.add_float(0.5, 0.25) = 0.75
+  custom_ops::add_int	boxed	custom_ops::add_int(int left, int right) -> int
+  custom_ops::add_float	boxed	custom_ops::add_float(float left, float right) -> float
+ops.custom_ops.add_int(40, 2) = 42
+ops.custom_ops.add_float(0.5, 0.25) = 0.75
 ```
 
 ## User Extension
@@ -88,8 +88,8 @@ ops.load_plugin(build / "libcustom_ops.so")
 for op in ops.list_ops():
     print(op)
 
-print(ops.add_int(40, 2))
-print(ops.add_float(0.5, 0.25))
+print(ops.custom_ops.add_int(40, 2))
+print(ops.custom_ops.add_float(0.5, 0.25))
 ```
 
 Python does not import `add_int` or `add_float` from generated bindings. It
@@ -109,9 +109,9 @@ dlopen loads user extension
     |
 global static registrar objects in extension/custom_ops.cpp run
     |
-add_int / add_float schemas are inserted into the C++ registry
+custom_ops::add_int / custom_ops::add_float schemas are inserted into the C++ registry
     |
-Python ops.add_int triggers __getattr__
+Python ops.custom_ops.add_int triggers __getattr__
     |
 __getattr__ checks C++ registry and returns a callable wrapper
     |
