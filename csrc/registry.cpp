@@ -13,8 +13,8 @@
 namespace dynamic_ops {
 namespace {
 
-using BoxedKernel = std::function<int(const DynamicValue*, std::size_t,
-                                      DynamicValue*, char*, std::size_t)>;
+using Stack = std::vector<DynamicValue>;
+using BoxedKernel = std::function<void(Stack*)>;
 
 enum class OpKind {
   kUndefined,
@@ -106,18 +106,42 @@ const char* KindName(OpKind kind) {
   return "undefined";
 }
 
-int CheckBinaryInputs(const std::string& name, const DynamicValue* inputs,
-                      std::size_t input_count, int expected_kind, char* error,
-                      std::size_t error_size) {
-  if (input_count != 2) {
+int CheckBinaryStack(const std::string& name, const Stack& stack,
+                     int expected_kind, char* error, std::size_t error_size) {
+  if (stack.size() != 2) {
     CopyMessage(std::string("op expects 2 inputs: ") + name, error, error_size);
     return 0;
   }
-  if (inputs[0].kind != expected_kind || inputs[1].kind != expected_kind) {
+  if (stack[0].kind != expected_kind || stack[1].kind != expected_kind) {
     CopyMessage(std::string("op input type mismatch: ") + name, error,
                 error_size);
     return 0;
   }
+  return 1;
+}
+
+int RunBoxedKernel(const std::string& name, const OpEntry& entry,
+                   const DynamicValue* inputs, std::size_t input_count,
+                   DynamicValue* output, char* error, std::size_t error_size) {
+  Stack stack(inputs, inputs + input_count);
+
+  if (entry.schema.find("(int ") != std::string::npos) {
+    if (!CheckBinaryStack(name, stack, DYNAMIC_OPS_INT, error, error_size)) {
+      return 0;
+    }
+  } else if (entry.schema.find("(float ") != std::string::npos) {
+    if (!CheckBinaryStack(name, stack, DYNAMIC_OPS_FLOAT, error, error_size)) {
+      return 0;
+    }
+  }
+
+  entry.kernel(&stack);
+
+  if (stack.size() != 1) {
+    CopyMessage(std::string("op expects 1 output: ") + name, error, error_size);
+    return 0;
+  }
+  *output = stack[0];
   return 1;
 }
 
@@ -130,33 +154,29 @@ void Library::def(const std::string& schema) {
 }
 
 void Library::impl(const std::string& name, int (*fn)(int, int)) {
-  Registry::Instance().RegisterImpl(
-      name,
-      [name, fn](const DynamicValue* inputs, std::size_t input_count,
-                 DynamicValue* output, char* error, std::size_t error_size) {
-        if (!CheckBinaryInputs(name, inputs, input_count, DYNAMIC_OPS_INT,
-                               error, error_size)) {
-          return 0;
-        }
-        output->kind = DYNAMIC_OPS_INT;
-        output->int_value = fn(inputs[0].int_value, inputs[1].int_value);
-        return 1;
-      });
+  Registry::Instance().RegisterImpl(name, [fn](Stack* stack) {
+    const int left = stack->at(0).int_value;
+    const int right = stack->at(1).int_value;
+    stack->clear();
+
+    DynamicValue output;
+    output.kind = DYNAMIC_OPS_INT;
+    output.int_value = fn(left, right);
+    stack->push_back(output);
+  });
 }
 
 void Library::impl(const std::string& name, float (*fn)(float, float)) {
-  Registry::Instance().RegisterImpl(
-      name,
-      [name, fn](const DynamicValue* inputs, std::size_t input_count,
-                 DynamicValue* output, char* error, std::size_t error_size) {
-        if (!CheckBinaryInputs(name, inputs, input_count, DYNAMIC_OPS_FLOAT,
-                               error, error_size)) {
-          return 0;
-        }
-        output->kind = DYNAMIC_OPS_FLOAT;
-        output->float_value = fn(inputs[0].float_value, inputs[1].float_value);
-        return 1;
-      });
+  Registry::Instance().RegisterImpl(name, [fn](Stack* stack) {
+    const float left = stack->at(0).float_value;
+    const float right = stack->at(1).float_value;
+    stack->clear();
+
+    DynamicValue output;
+    output.kind = DYNAMIC_OPS_FLOAT;
+    output.float_value = fn(left, right);
+    stack->push_back(output);
+  });
 }
 
 LibraryRegistrar::LibraryRegistrar(const std::string& name, InitFn init) {
@@ -201,7 +221,8 @@ int call_op(const char* name, const dynamic_ops::DynamicValue* inputs,
     return 0;
   }
 
-  return entry->kernel(inputs, input_count, output, error, error_size);
+  return RunBoxedKernel(name, *entry, inputs, input_count, output, error,
+                        error_size);
 }
 
 int list_ops(char* output, std::size_t output_size) {
