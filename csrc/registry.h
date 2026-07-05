@@ -6,14 +6,14 @@
 #define DYNAMIC_OPS_CONCAT_IMPL(x, y) x##y
 #define DYNAMIC_OPS_CONCAT(x, y) DYNAMIC_OPS_CONCAT_IMPL(x, y)
 
-#define DYNAMIC_OPS_LIBRARY(name, m)                                    \
-  static void DYNAMIC_OPS_CONCAT(dynamic_ops_library_init_,             \
-                                 __LINE__)(::dynamic_ops::Library & m); \
-  static ::dynamic_ops::LibraryRegistrar DYNAMIC_OPS_CONCAT(            \
-      dynamic_ops_library_registrar_, __LINE__)(                        \
-      #name, DYNAMIC_OPS_CONCAT(dynamic_ops_library_init_, __LINE__));  \
-  static void DYNAMIC_OPS_CONCAT(dynamic_ops_library_init_,             \
-                                 __LINE__)(::dynamic_ops::Library & m)
+#define DYNAMIC_OPS_LIBRARY(library_name, module)                              \
+  static void DYNAMIC_OPS_CONCAT(dynamic_ops_library_init_,                    \
+                                 __LINE__)(::dynamic_ops::Library & module);   \
+  static ::dynamic_ops::LibraryRegistrar DYNAMIC_OPS_CONCAT(                   \
+      dynamic_ops_library_registrar_, __LINE__)(                               \
+      #library_name, DYNAMIC_OPS_CONCAT(dynamic_ops_library_init_, __LINE__)); \
+  static void DYNAMIC_OPS_CONCAT(dynamic_ops_library_init_,                    \
+                                 __LINE__)(::dynamic_ops::Library & module)
 
 namespace dynamic_ops {
 
