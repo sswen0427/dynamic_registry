@@ -7,12 +7,12 @@
 #define DYNAMIC_OPS_CONCAT_IMPL(x, y) x##y
 #define DYNAMIC_OPS_CONCAT(x, y) DYNAMIC_OPS_CONCAT_IMPL(x, y)
 
-#define DYNAMIC_OPS_REGISTER_INT_BINARY(name, fn)                     \
-  static ::dynamic_demo::IntBinaryRegistrar DYNAMIC_OPS_CONCAT(       \
+#define DYNAMIC_OPS_REGISTER_INT_BINARY(name, fn)               \
+  static ::dynamic_demo::IntBinaryRegistrar DYNAMIC_OPS_CONCAT( \
       dynamic_ops_int_binary_registrar_, __COUNTER__)((name), (fn))
 
-#define DYNAMIC_OPS_REGISTER_FLOAT_BINARY(name, fn)                   \
-  static ::dynamic_demo::FloatBinaryRegistrar DYNAMIC_OPS_CONCAT(     \
+#define DYNAMIC_OPS_REGISTER_FLOAT_BINARY(name, fn)               \
+  static ::dynamic_demo::FloatBinaryRegistrar DYNAMIC_OPS_CONCAT( \
       dynamic_ops_float_binary_registrar_, __COUNTER__)((name), (fn))
 
 namespace dynamic_demo {
@@ -67,5 +67,4 @@ int call_int_binary(const char* name, int left, int right, int* output,
 int call_float_binary(const char* name, float left, float right, float* output,
                       char* error, std::size_t error_size);
 int list_ops(char* output, std::size_t output_size);
-
 }

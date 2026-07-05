@@ -34,14 +34,14 @@ Registry& Registry::Instance() {
 
 void Registry::RegisterIntBinary(const std::string& name, IntBinaryFn fn) {
   std::lock_guard<std::mutex> lock(RegistryMutex());
-  entries_.push_back(OpEntry{name, OpKind::kIntBinary,
-                             reinterpret_cast<void*>(fn)});
+  entries_.push_back(
+      OpEntry{name, OpKind::kIntBinary, reinterpret_cast<void*>(fn)});
 }
 
 void Registry::RegisterFloatBinary(const std::string& name, FloatBinaryFn fn) {
   std::lock_guard<std::mutex> lock(RegistryMutex());
-  entries_.push_back(OpEntry{name, OpKind::kFloatBinary,
-                             reinterpret_cast<void*>(fn)});
+  entries_.push_back(
+      OpEntry{name, OpKind::kFloatBinary, reinterpret_cast<void*>(fn)});
 }
 
 const OpEntry* Registry::Find(const std::string& name) const {
@@ -154,5 +154,4 @@ int list_ops(char* output, std::size_t output_size) {
   dynamic_demo::CopyMessage(stream.str(), output, output_size);
   return static_cast<int>(entries.size());
 }
-
 }
