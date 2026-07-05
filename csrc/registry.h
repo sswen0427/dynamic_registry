@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstddef>
+#include <functional>
 #include <string>
 #include <vector>
 
@@ -18,20 +19,32 @@
 
 namespace dynamic_ops {
 
-using IntBinaryFn = int (*)(int, int);
-using FloatBinaryFn = float (*)(float, float);
+enum DynamicScalarKind {
+  DYNAMIC_OPS_INT = 1,
+  DYNAMIC_OPS_FLOAT = 2,
+};
+
+struct DynamicValue {
+  int kind;
+  union {
+    int int_value;
+    float float_value;
+  };
+};
+
+using BoxedKernel = std::function<int(const DynamicValue*, std::size_t,
+                                      DynamicValue*, char*, std::size_t)>;
 
 enum class OpKind {
   kUndefined,
-  kIntBinary,
-  kFloatBinary,
+  kBoxed,
 };
 
 struct OpEntry {
   std::string name;
   std::string schema;
   OpKind kind;
-  void* fn = nullptr;
+  BoxedKernel kernel;
 };
 
 class Registry {
@@ -39,8 +52,7 @@ class Registry {
   static Registry& Instance();
 
   void Declare(const std::string& schema);
-  void RegisterImpl(const std::string& name, IntBinaryFn fn);
-  void RegisterImpl(const std::string& name, FloatBinaryFn fn);
+  void RegisterImpl(const std::string& name, BoxedKernel kernel);
 
   const OpEntry* Find(const std::string& name) const;
   std::vector<OpEntry> List() const;
@@ -56,8 +68,8 @@ class Library {
   explicit Library(const std::string& name);
 
   void def(const std::string& schema);
-  void impl(const std::string& name, IntBinaryFn fn);
-  void impl(const std::string& name, FloatBinaryFn fn);
+  void impl(const std::string& name, int (*fn)(int, int));
+  void impl(const std::string& name, float (*fn)(float, float));
 
  private:
   std::string name_;
@@ -74,22 +86,9 @@ class LibraryRegistrar {
 
 extern "C" {
 
-enum DynamicScalarKind {
-  DYNAMIC_OPS_INT = 1,
-  DYNAMIC_OPS_FLOAT = 2,
-};
-
-struct DynamicValue {
-  int kind;
-  union {
-    int int_value;
-    float float_value;
-  };
-};
-
 int load_plugin(const char* path, char* error, std::size_t error_size);
-int call_op(const char* name, const DynamicValue* inputs,
-            std::size_t input_count, DynamicValue* output, char* error,
-            std::size_t error_size);
+int call_op(const char* name, const dynamic_ops::DynamicValue* inputs,
+            std::size_t input_count, dynamic_ops::DynamicValue* output,
+            char* error, std::size_t error_size);
 int list_ops(char* output, std::size_t output_size);
 }

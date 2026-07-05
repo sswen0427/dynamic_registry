@@ -35,8 +35,8 @@ Expected output:
 
 ```text
 registered ops:
-  add_int	int_binary	add_int(int left, int right) -> int
-  add_float	float_binary	add_float(float left, float right) -> float
+  add_int	boxed	add_int(int left, int right) -> int
+  add_float	boxed	add_float(float left, float right) -> float
 ops.add_int(40, 2) = 42
 ops.add_float(0.5, 0.25) = 0.75
 ```

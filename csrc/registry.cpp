@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <cstring>
+#include <functional>
 #include <mutex>
 #include <sstream>
 #include <stdexcept>
@@ -35,13 +36,25 @@ std::string ParseOpName(const std::string& schema) {
 }
 
 const char* KindName(OpKind kind) {
-  if (kind == OpKind::kIntBinary) {
-    return "int_binary";
-  }
-  if (kind == OpKind::kFloatBinary) {
-    return "float_binary";
+  if (kind == OpKind::kBoxed) {
+    return "boxed";
   }
   return "undefined";
+}
+
+int CheckBinaryInputs(const std::string& name, const DynamicValue* inputs,
+                      std::size_t input_count, int expected_kind, char* error,
+                      std::size_t error_size) {
+  if (input_count != 2) {
+    CopyMessage(std::string("op expects 2 inputs: ") + name, error, error_size);
+    return 0;
+  }
+  if (inputs[0].kind != expected_kind || inputs[1].kind != expected_kind) {
+    CopyMessage(std::string("op input type mismatch: ") + name, error,
+                error_size);
+    return 0;
+  }
+  return 1;
 }
 
 }  // namespace
@@ -54,33 +67,19 @@ Registry& Registry::Instance() {
 void Registry::Declare(const std::string& schema) {
   std::lock_guard<std::mutex> lock(RegistryMutex());
   entries_.push_back(
-      OpEntry{ParseOpName(schema), schema, OpKind::kUndefined, nullptr});
+      OpEntry{ParseOpName(schema), schema, OpKind::kUndefined, BoxedKernel{}});
 }
 
-void Registry::RegisterImpl(const std::string& name, IntBinaryFn fn) {
+void Registry::RegisterImpl(const std::string& name, BoxedKernel kernel) {
   std::lock_guard<std::mutex> lock(RegistryMutex());
   for (OpEntry& entry : entries_) {
     if (entry.name == name) {
-      entry.kind = OpKind::kIntBinary;
-      entry.fn = reinterpret_cast<void*>(fn);
+      entry.kind = OpKind::kBoxed;
+      entry.kernel = std::move(kernel);
       return;
     }
   }
-  entries_.push_back(
-      OpEntry{name, "", OpKind::kIntBinary, reinterpret_cast<void*>(fn)});
-}
-
-void Registry::RegisterImpl(const std::string& name, FloatBinaryFn fn) {
-  std::lock_guard<std::mutex> lock(RegistryMutex());
-  for (OpEntry& entry : entries_) {
-    if (entry.name == name) {
-      entry.kind = OpKind::kFloatBinary;
-      entry.fn = reinterpret_cast<void*>(fn);
-      return;
-    }
-  }
-  entries_.push_back(
-      OpEntry{name, "", OpKind::kFloatBinary, reinterpret_cast<void*>(fn)});
+  entries_.push_back(OpEntry{name, "", OpKind::kBoxed, std::move(kernel)});
 }
 
 const OpEntry* Registry::Find(const std::string& name) const {
@@ -103,12 +102,34 @@ void Library::def(const std::string& schema) {
   Registry::Instance().Declare(schema);
 }
 
-void Library::impl(const std::string& name, IntBinaryFn fn) {
-  Registry::Instance().RegisterImpl(name, fn);
+void Library::impl(const std::string& name, int (*fn)(int, int)) {
+  Registry::Instance().RegisterImpl(
+      name,
+      [name, fn](const DynamicValue* inputs, std::size_t input_count,
+                 DynamicValue* output, char* error, std::size_t error_size) {
+        if (!CheckBinaryInputs(name, inputs, input_count, DYNAMIC_OPS_INT,
+                               error, error_size)) {
+          return 0;
+        }
+        output->kind = DYNAMIC_OPS_INT;
+        output->int_value = fn(inputs[0].int_value, inputs[1].int_value);
+        return 1;
+      });
 }
 
-void Library::impl(const std::string& name, FloatBinaryFn fn) {
-  Registry::Instance().RegisterImpl(name, fn);
+void Library::impl(const std::string& name, float (*fn)(float, float)) {
+  Registry::Instance().RegisterImpl(
+      name,
+      [name, fn](const DynamicValue* inputs, std::size_t input_count,
+                 DynamicValue* output, char* error, std::size_t error_size) {
+        if (!CheckBinaryInputs(name, inputs, input_count, DYNAMIC_OPS_FLOAT,
+                               error, error_size)) {
+          return 0;
+        }
+        output->kind = DYNAMIC_OPS_FLOAT;
+        output->float_value = fn(inputs[0].float_value, inputs[1].float_value);
+        return 1;
+      });
 }
 
 LibraryRegistrar::LibraryRegistrar(const std::string& name, InitFn init) {
@@ -134,9 +155,9 @@ int load_plugin(const char* path, char* error, std::size_t error_size) {
   return 1;
 }
 
-int call_op(const char* name, const DynamicValue* inputs,
-            std::size_t input_count, DynamicValue* output, char* error,
-            std::size_t error_size) {
+int call_op(const char* name, const dynamic_ops::DynamicValue* inputs,
+            std::size_t input_count, dynamic_ops::DynamicValue* output,
+            char* error, std::size_t error_size) {
   if (name == nullptr || inputs == nullptr || output == nullptr) {
     dynamic_ops::CopyMessage("invalid op call argument", error, error_size);
     return 0;
@@ -150,41 +171,13 @@ int call_op(const char* name, const DynamicValue* inputs,
     return 0;
   }
 
-  if (input_count != 2) {
-    dynamic_ops::CopyMessage(std::string("op expects 2 inputs: ") + name, error,
-                             error_size);
+  if (!entry->kernel) {
+    dynamic_ops::CopyMessage(std::string("op has no implementation: ") + name,
+                             error, error_size);
     return 0;
   }
 
-  if (entry->kind == dynamic_ops::OpKind::kIntBinary) {
-    if (inputs[0].kind != DYNAMIC_OPS_INT ||
-        inputs[1].kind != DYNAMIC_OPS_INT) {
-      dynamic_ops::CopyMessage(std::string("op expects int inputs: ") + name,
-                               error, error_size);
-      return 0;
-    }
-    auto fn = reinterpret_cast<dynamic_ops::IntBinaryFn>(entry->fn);
-    output->kind = DYNAMIC_OPS_INT;
-    output->int_value = fn(inputs[0].int_value, inputs[1].int_value);
-    return 1;
-  }
-
-  if (entry->kind == dynamic_ops::OpKind::kFloatBinary) {
-    if (inputs[0].kind != DYNAMIC_OPS_FLOAT ||
-        inputs[1].kind != DYNAMIC_OPS_FLOAT) {
-      dynamic_ops::CopyMessage(std::string("op expects float inputs: ") + name,
-                               error, error_size);
-      return 0;
-    }
-    auto fn = reinterpret_cast<dynamic_ops::FloatBinaryFn>(entry->fn);
-    output->kind = DYNAMIC_OPS_FLOAT;
-    output->float_value = fn(inputs[0].float_value, inputs[1].float_value);
-    return 1;
-  }
-
-  dynamic_ops::CopyMessage(std::string("unsupported op kind: ") + name, error,
-                           error_size);
-  return 0;
+  return entry->kernel(inputs, input_count, output, error, error_size);
 }
 
 int list_ops(char* output, std::size_t output_size) {
