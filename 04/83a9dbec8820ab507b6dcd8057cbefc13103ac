@@ -1,0 +1,21 @@
+csrc/registry.cpp
+  s_167c68883bd1db::t_a4dce202f5cb03 11,16-78,191,209,221-222
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.5",
+  "base_commit_sha": "0483a9dbec8820ab507b6dcd8057cbefc13103ac",
+  "prompts": {},
+  "sessions": {
+    "s_167c68883bd1db": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f3207-96b3-7311-85ea-53d891227ce0",
+        "model": "unknown"
+      },
+      "human_author": "wensisi <wensisi.0427@bytedance.com>"
+    }
+  },
+  "attestation_metadata": {},
+  "remote_transcripts": {}
+}
