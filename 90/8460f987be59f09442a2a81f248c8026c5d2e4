@@ -1,0 +1,23 @@
+README.md
+  s_167c68883bd1db::t_00d5f4ae48a18b 118,120,122-124
+csrc/registry.cpp
+  s_167c68883bd1db::t_2fe218304e6ced 16-17,109-111,115,123-147,157-166,170-179,224-225
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.5",
+  "base_commit_sha": "908460f987be59f09442a2a81f248c8026c5d2e4",
+  "prompts": {},
+  "sessions": {
+    "s_167c68883bd1db": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f3207-96b3-7311-85ea-53d891227ce0",
+        "model": "unknown"
+      },
+      "human_author": "wensisi <wensisi.0427@bytedance.com>"
+    }
+  },
+  "attestation_metadata": {},
+  "remote_transcripts": {}
+}
