@@ -1,0 +1,23 @@
+README.md
+  s_167c68883bd1db::t_73e6f1d973464f 16,24,37-41,81-86
+example.py
+  s_167c68883bd1db::t_1af7654eecc3f9 2,20-21
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.5",
+  "base_commit_sha": "9bd3ae8f2ae5a35b89c329c50b4a4e1faf531d2e",
+  "prompts": {},
+  "sessions": {
+    "s_167c68883bd1db": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f3207-96b3-7311-85ea-53d891227ce0",
+        "model": "unknown"
+      },
+      "human_author": "wensisi <wensisi.0427@bytedance.com>"
+    }
+  },
+  "attestation_metadata": {},
+  "remote_transcripts": {}
+}
