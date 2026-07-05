@@ -1,7 +1,10 @@
 #pragma once
 
 #include <cstddef>
+#include <functional>
 #include <string>
+#include <utility>
+#include <vector>
 
 #define DYNAMIC_OPS_CONCAT_IMPL(x, y) x##y
 #define DYNAMIC_OPS_CONCAT(x, y) DYNAMIC_OPS_CONCAT_IMPL(x, y)
@@ -30,15 +33,74 @@ struct DynamicValue {
   };
 };
 
+namespace detail {
+
+using Stack = std::vector<DynamicValue>;
+using BoxedKernel = std::function<void(Stack*)>;
+
+template <typename T>
+T ReadValue(const DynamicValue& value);
+
+template <>
+inline int ReadValue<int>(const DynamicValue& value) {
+  return value.int_value;
+}
+
+template <>
+inline float ReadValue<float>(const DynamicValue& value) {
+  return value.float_value;
+}
+
+template <typename T>
+DynamicValue MakeValue(T value);
+
+template <>
+inline DynamicValue MakeValue<int>(int value) {
+  DynamicValue output;
+  output.kind = DYNAMIC_OPS_INT;
+  output.int_value = value;
+  return output;
+}
+
+template <>
+inline DynamicValue MakeValue<float>(float value) {
+  DynamicValue output;
+  output.kind = DYNAMIC_OPS_FLOAT;
+  output.float_value = value;
+  return output;
+}
+
+template <typename Ret, typename... Args, std::size_t... Indices>
+void CallUnboxed(Ret (*fn)(Args...), Stack* stack,
+                 std::index_sequence<Indices...>) {
+  Ret output = fn(ReadValue<Args>(stack->at(Indices))...);
+  stack->clear();
+  stack->push_back(MakeValue<Ret>(output));
+}
+
+template <typename Ret, typename... Args>
+BoxedKernel MakeBoxedKernel(Ret (*fn)(Args...)) {
+  return [fn](Stack* stack) {
+    CallUnboxed(fn, stack, std::index_sequence_for<Args...>{});
+  };
+}
+
+}  // namespace detail
+
 class Library {
  public:
   explicit Library(const std::string& name);
 
   void def(const std::string& schema);
-  void impl(const std::string& name, int (*fn)(int, int));
-  void impl(const std::string& name, float (*fn)(float, float));
+
+  template <typename Ret, typename... Args>
+  void impl(const std::string& name, Ret (*fn)(Args...)) {
+    RegisterBoxedImpl(name, detail::MakeBoxedKernel(fn));
+  }
 
  private:
+  void RegisterBoxedImpl(const std::string& name, detail::BoxedKernel kernel);
+
   std::string name_;
 };
 

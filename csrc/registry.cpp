@@ -13,8 +13,8 @@
 namespace dynamic_ops {
 namespace {
 
-using Stack = std::vector<DynamicValue>;
-using BoxedKernel = std::function<void(Stack*)>;
+using Stack = detail::Stack;
+using BoxedKernel = detail::BoxedKernel;
 
 enum class OpKind {
   kUndefined,
@@ -170,32 +170,9 @@ void Library::def(const std::string& schema) {
   Registry::Instance().Declare(QualifySchema(name_, schema));
 }
 
-void Library::impl(const std::string& name, int (*fn)(int, int)) {
+void Library::RegisterBoxedImpl(const std::string& name, BoxedKernel kernel) {
   Registry::Instance().RegisterImpl(QualifyName(name_, name),
-                                    [fn](Stack* stack) {
-                                      const int left = stack->at(0).int_value;
-                                      const int right = stack->at(1).int_value;
-                                      stack->clear();
-
-                                      DynamicValue output;
-                                      output.kind = DYNAMIC_OPS_INT;
-                                      output.int_value = fn(left, right);
-                                      stack->push_back(output);
-                                    });
-}
-
-void Library::impl(const std::string& name, float (*fn)(float, float)) {
-  Registry::Instance().RegisterImpl(
-      QualifyName(name_, name), [fn](Stack* stack) {
-        const float left = stack->at(0).float_value;
-        const float right = stack->at(1).float_value;
-        stack->clear();
-
-        DynamicValue output;
-        output.kind = DYNAMIC_OPS_FLOAT;
-        output.float_value = fn(left, right);
-        stack->push_back(output);
-      });
+                                    std::move(kernel));
 }
 
 LibraryRegistrar::LibraryRegistrar(const std::string& name, InitFn init) {
