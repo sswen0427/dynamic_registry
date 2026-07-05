@@ -7,7 +7,7 @@
 #include <mutex>
 #include <sstream>
 
-namespace dynamic_demo {
+namespace dynamic_ops {
 namespace {
 
 std::mutex& RegistryMutex() {
@@ -68,19 +68,19 @@ FloatBinaryRegistrar::FloatBinaryRegistrar(const std::string& name,
   Registry::Instance().RegisterFloatBinary(name, fn);
 }
 
-}  // namespace dynamic_demo
+}  // namespace dynamic_ops
 
 extern "C" {
 
 int load_plugin(const char* path, char* error, std::size_t error_size) {
   if (path == nullptr) {
-    dynamic_demo::CopyMessage("plugin path is null", error, error_size);
+    dynamic_ops::CopyMessage("plugin path is null", error, error_size);
     return 0;
   }
 
   void* handle = dlopen(path, RTLD_NOW | RTLD_GLOBAL);
   if (handle == nullptr) {
-    dynamic_demo::CopyMessage(dlerror(), error, error_size);
+    dynamic_ops::CopyMessage(dlerror(), error, error_size);
     return 0;
   }
   return 1;
@@ -89,25 +89,24 @@ int load_plugin(const char* path, char* error, std::size_t error_size) {
 int call_int_binary(const char* name, int left, int right, int* output,
                     char* error, std::size_t error_size) {
   if (name == nullptr || output == nullptr) {
-    dynamic_demo::CopyMessage("invalid int op call argument", error,
-                              error_size);
+    dynamic_ops::CopyMessage("invalid int op call argument", error, error_size);
     return 0;
   }
 
-  const dynamic_demo::OpEntry* entry =
-      dynamic_demo::Registry::Instance().Find(name);
+  const dynamic_ops::OpEntry* entry =
+      dynamic_ops::Registry::Instance().Find(name);
   if (entry == nullptr) {
-    dynamic_demo::CopyMessage(std::string("op not found: ") + name, error,
-                              error_size);
+    dynamic_ops::CopyMessage(std::string("op not found: ") + name, error,
+                             error_size);
     return 0;
   }
-  if (entry->kind != dynamic_demo::OpKind::kIntBinary) {
-    dynamic_demo::CopyMessage(std::string("op is not int binary: ") + name,
-                              error, error_size);
+  if (entry->kind != dynamic_ops::OpKind::kIntBinary) {
+    dynamic_ops::CopyMessage(std::string("op is not int binary: ") + name,
+                             error, error_size);
     return 0;
   }
 
-  auto fn = reinterpret_cast<dynamic_demo::IntBinaryFn>(entry->fn);
+  auto fn = reinterpret_cast<dynamic_ops::IntBinaryFn>(entry->fn);
   *output = fn(left, right);
   return 1;
 }
@@ -115,43 +114,43 @@ int call_int_binary(const char* name, int left, int right, int* output,
 int call_float_binary(const char* name, float left, float right, float* output,
                       char* error, std::size_t error_size) {
   if (name == nullptr || output == nullptr) {
-    dynamic_demo::CopyMessage("invalid float op call argument", error,
-                              error_size);
+    dynamic_ops::CopyMessage("invalid float op call argument", error,
+                             error_size);
     return 0;
   }
 
-  const dynamic_demo::OpEntry* entry =
-      dynamic_demo::Registry::Instance().Find(name);
+  const dynamic_ops::OpEntry* entry =
+      dynamic_ops::Registry::Instance().Find(name);
   if (entry == nullptr) {
-    dynamic_demo::CopyMessage(std::string("op not found: ") + name, error,
-                              error_size);
+    dynamic_ops::CopyMessage(std::string("op not found: ") + name, error,
+                             error_size);
     return 0;
   }
-  if (entry->kind != dynamic_demo::OpKind::kFloatBinary) {
-    dynamic_demo::CopyMessage(std::string("op is not float binary: ") + name,
-                              error, error_size);
+  if (entry->kind != dynamic_ops::OpKind::kFloatBinary) {
+    dynamic_ops::CopyMessage(std::string("op is not float binary: ") + name,
+                             error, error_size);
     return 0;
   }
 
-  auto fn = reinterpret_cast<dynamic_demo::FloatBinaryFn>(entry->fn);
+  auto fn = reinterpret_cast<dynamic_ops::FloatBinaryFn>(entry->fn);
   *output = fn(left, right);
   return 1;
 }
 
 int list_ops(char* output, std::size_t output_size) {
   std::ostringstream stream;
-  const std::vector<dynamic_demo::OpEntry> entries =
-      dynamic_demo::Registry::Instance().List();
+  const std::vector<dynamic_ops::OpEntry> entries =
+      dynamic_ops::Registry::Instance().List();
   for (std::size_t i = 0; i < entries.size(); ++i) {
     if (i > 0) {
       stream << "\n";
     }
     stream << entries[i].name << ":"
-           << (entries[i].kind == dynamic_demo::OpKind::kIntBinary
+           << (entries[i].kind == dynamic_ops::OpKind::kIntBinary
                    ? "int_binary"
                    : "float_binary");
   }
-  dynamic_demo::CopyMessage(stream.str(), output, output_size);
+  dynamic_ops::CopyMessage(stream.str(), output, output_size);
   return static_cast<int>(entries.size());
 }
 }
