@@ -86,10 +86,11 @@ int load_plugin(const char* path, char* error, std::size_t error_size) {
   return 1;
 }
 
-int call_int_binary(const char* name, int left, int right, int* output,
-                    char* error, std::size_t error_size) {
-  if (name == nullptr || output == nullptr) {
-    dynamic_ops::CopyMessage("invalid int op call argument", error, error_size);
+int call_op(const char* name, const DynamicValue* inputs,
+            std::size_t input_count, DynamicValue* output, char* error,
+            std::size_t error_size) {
+  if (name == nullptr || inputs == nullptr || output == nullptr) {
+    dynamic_ops::CopyMessage("invalid op call argument", error, error_size);
     return 0;
   }
 
@@ -100,41 +101,42 @@ int call_int_binary(const char* name, int left, int right, int* output,
                              error_size);
     return 0;
   }
-  if (entry->kind != dynamic_ops::OpKind::kIntBinary) {
-    dynamic_ops::CopyMessage(std::string("op is not int binary: ") + name,
-                             error, error_size);
-    return 0;
-  }
 
-  auto fn = reinterpret_cast<dynamic_ops::IntBinaryFn>(entry->fn);
-  *output = fn(left, right);
-  return 1;
-}
-
-int call_float_binary(const char* name, float left, float right, float* output,
-                      char* error, std::size_t error_size) {
-  if (name == nullptr || output == nullptr) {
-    dynamic_ops::CopyMessage("invalid float op call argument", error,
+  if (input_count != 2) {
+    dynamic_ops::CopyMessage(std::string("op expects 2 inputs: ") + name, error,
                              error_size);
     return 0;
   }
 
-  const dynamic_ops::OpEntry* entry =
-      dynamic_ops::Registry::Instance().Find(name);
-  if (entry == nullptr) {
-    dynamic_ops::CopyMessage(std::string("op not found: ") + name, error,
-                             error_size);
-    return 0;
-  }
-  if (entry->kind != dynamic_ops::OpKind::kFloatBinary) {
-    dynamic_ops::CopyMessage(std::string("op is not float binary: ") + name,
-                             error, error_size);
-    return 0;
+  if (entry->kind == dynamic_ops::OpKind::kIntBinary) {
+    if (inputs[0].kind != DYNAMIC_OPS_INT ||
+        inputs[1].kind != DYNAMIC_OPS_INT) {
+      dynamic_ops::CopyMessage(std::string("op expects int inputs: ") + name,
+                               error, error_size);
+      return 0;
+    }
+    auto fn = reinterpret_cast<dynamic_ops::IntBinaryFn>(entry->fn);
+    output->kind = DYNAMIC_OPS_INT;
+    output->int_value = fn(inputs[0].int_value, inputs[1].int_value);
+    return 1;
   }
 
-  auto fn = reinterpret_cast<dynamic_ops::FloatBinaryFn>(entry->fn);
-  *output = fn(left, right);
-  return 1;
+  if (entry->kind == dynamic_ops::OpKind::kFloatBinary) {
+    if (inputs[0].kind != DYNAMIC_OPS_FLOAT ||
+        inputs[1].kind != DYNAMIC_OPS_FLOAT) {
+      dynamic_ops::CopyMessage(std::string("op expects float inputs: ") + name,
+                               error, error_size);
+      return 0;
+    }
+    auto fn = reinterpret_cast<dynamic_ops::FloatBinaryFn>(entry->fn);
+    output->kind = DYNAMIC_OPS_FLOAT;
+    output->float_value = fn(inputs[0].float_value, inputs[1].float_value);
+    return 1;
+  }
+
+  dynamic_ops::CopyMessage(std::string("unsupported op kind: ") + name, error,
+                           error_size);
+  return 0;
 }
 
 int list_ops(char* output, std::size_t output_size) {

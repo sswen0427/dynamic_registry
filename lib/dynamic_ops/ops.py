@@ -3,6 +3,25 @@ from pathlib import Path
 from typing import Union
 
 
+INT = 1
+FLOAT = 2
+
+
+class _DynamicValueData(ctypes.Union):
+    _fields_ = [
+        ("int_value", ctypes.c_int),
+        ("float_value", ctypes.c_float),
+    ]
+
+
+class _DynamicValue(ctypes.Structure):
+    _anonymous_ = ("data",)
+    _fields_ = [
+        ("kind", ctypes.c_int),
+        ("data", _DynamicValueData),
+    ]
+
+
 class Ops:
     def __init__(self, registry_so: Union[str, Path]):
         self._lib = ctypes.CDLL(str(registry_so))
@@ -26,11 +45,7 @@ class Ops:
             raise AttributeError(f"op not found: {name}")
 
         _, kind = registered[name].split(":", 1)
-        if kind == "int_binary":
-            return lambda left, right: self._call_int(name, left, right)
-        if kind == "float_binary":
-            return lambda left, right: self._call_float(name, left, right)
-        raise AttributeError(f"unsupported op kind: {kind}")
+        return lambda *args: self._call(name, kind, args)
 
     def _configure_c_api(self):
         self._lib.load_plugin.argtypes = [
@@ -40,55 +55,52 @@ class Ops:
         ]
         self._lib.load_plugin.restype = ctypes.c_int
 
-        self._lib.call_int_binary.argtypes = [
+        self._lib.call_op.argtypes = [
             ctypes.c_char_p,
-            ctypes.c_int,
-            ctypes.c_int,
-            ctypes.POINTER(ctypes.c_int),
+            ctypes.POINTER(_DynamicValue),
+            ctypes.c_size_t,
+            ctypes.POINTER(_DynamicValue),
             ctypes.c_char_p,
             ctypes.c_size_t,
         ]
-        self._lib.call_int_binary.restype = ctypes.c_int
-
-        self._lib.call_float_binary.argtypes = [
-            ctypes.c_char_p,
-            ctypes.c_float,
-            ctypes.c_float,
-            ctypes.POINTER(ctypes.c_float),
-            ctypes.c_char_p,
-            ctypes.c_size_t,
-        ]
-        self._lib.call_float_binary.restype = ctypes.c_int
+        self._lib.call_op.restype = ctypes.c_int
 
         self._lib.list_ops.argtypes = [ctypes.c_char_p, ctypes.c_size_t]
         self._lib.list_ops.restype = ctypes.c_int
 
-    def _call_int(self, name, left, right):
-        output = ctypes.c_int()
+    def _call(self, name, kind, args):
+        inputs = self._pack_inputs(kind, args)
+        output = _DynamicValue()
         error = ctypes.create_string_buffer(1024)
-        ok = self._lib.call_int_binary(
+        ok = self._lib.call_op(
             name.encode(),
-            int(left),
-            int(right),
+            inputs,
+            len(inputs),
             ctypes.byref(output),
             error,
             len(error),
         )
         if not ok:
             raise RuntimeError(error.value.decode())
-        return output.value
+        return self._unpack_output(output)
 
-    def _call_float(self, name, left, right):
-        output = ctypes.c_float()
-        error = ctypes.create_string_buffer(1024)
-        ok = self._lib.call_float_binary(
-            name.encode(),
-            float(left),
-            float(right),
-            ctypes.byref(output),
-            error,
-            len(error),
-        )
-        if not ok:
-            raise RuntimeError(error.value.decode())
-        return output.value
+    def _pack_inputs(self, kind, args):
+        if kind not in ("int_binary", "float_binary"):
+            raise AttributeError(f"unsupported op kind: {kind}")
+
+        values = (_DynamicValue * len(args))()
+        for index, arg in enumerate(args):
+            if kind == "int_binary":
+                values[index].kind = INT
+                values[index].int_value = int(arg)
+            else:
+                values[index].kind = FLOAT
+                values[index].float_value = float(arg)
+        return values
+
+    def _unpack_output(self, output):
+        if output.kind == INT:
+            return output.int_value
+        if output.kind == FLOAT:
+            return output.float_value
+        raise RuntimeError(f"unsupported output kind: {output.kind}")

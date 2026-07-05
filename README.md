@@ -103,5 +103,9 @@ Python ops.add_int triggers __getattr__
     |
 __getattr__ checks C++ registry and returns a callable wrapper
     |
-calling the wrapper invokes the C++ function pointer
+calling the wrapper packs arguments into DynamicValue[]
+    |
+call_op dispatches by op name and registered schema
+    |
+the C++ function pointer runs and returns a DynamicValue
 ```

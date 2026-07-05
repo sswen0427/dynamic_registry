@@ -61,10 +61,22 @@ class FloatBinaryRegistrar {
 
 extern "C" {
 
+enum DynamicScalarKind {
+  DYNAMIC_OPS_INT = 1,
+  DYNAMIC_OPS_FLOAT = 2,
+};
+
+struct DynamicValue {
+  int kind;
+  union {
+    int int_value;
+    float float_value;
+  };
+};
+
 int load_plugin(const char* path, char* error, std::size_t error_size);
-int call_int_binary(const char* name, int left, int right, int* output,
-                    char* error, std::size_t error_size);
-int call_float_binary(const char* name, float left, float right, float* output,
-                      char* error, std::size_t error_size);
+int call_op(const char* name, const DynamicValue* inputs,
+            std::size_t input_count, DynamicValue* output, char* error,
+            std::size_t error_size);
 int list_ops(char* output, std::size_t output_size);
 }
