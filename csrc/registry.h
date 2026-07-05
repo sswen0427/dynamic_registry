@@ -1,9 +1,7 @@
 #pragma once
 
 #include <cstddef>
-#include <functional>
 #include <string>
-#include <vector>
 
 #define DYNAMIC_OPS_CONCAT_IMPL(x, y) x##y
 #define DYNAMIC_OPS_CONCAT(x, y) DYNAMIC_OPS_CONCAT_IMPL(x, y)
@@ -30,37 +28,6 @@ struct DynamicValue {
     int int_value;
     float float_value;
   };
-};
-
-using BoxedKernel = std::function<int(const DynamicValue*, std::size_t,
-                                      DynamicValue*, char*, std::size_t)>;
-
-enum class OpKind {
-  kUndefined,
-  kBoxed,
-};
-
-struct OpEntry {
-  std::string name;
-  std::string schema;
-  OpKind kind;
-  BoxedKernel kernel;
-};
-
-class Registry {
- public:
-  static Registry& Instance();
-
-  void Declare(const std::string& schema);
-  void RegisterImpl(const std::string& name, BoxedKernel kernel);
-
-  const OpEntry* Find(const std::string& name) const;
-  std::vector<OpEntry> List() const;
-
- private:
-  Registry() = default;
-
-  std::vector<OpEntry> entries_;
 };
 
 class Library {

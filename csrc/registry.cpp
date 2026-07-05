@@ -8,9 +8,73 @@
 #include <mutex>
 #include <sstream>
 #include <stdexcept>
+#include <vector>
 
 namespace dynamic_ops {
 namespace {
+
+using BoxedKernel = std::function<int(const DynamicValue*, std::size_t,
+                                      DynamicValue*, char*, std::size_t)>;
+
+enum class OpKind {
+  kUndefined,
+  kBoxed,
+};
+
+std::mutex& RegistryMutex();
+std::string ParseOpName(const std::string& schema);
+
+struct OpEntry {
+  std::string name;
+  std::string schema;
+  OpKind kind;
+  BoxedKernel kernel;
+};
+
+class Registry {
+ public:
+  static Registry& Instance() {
+    static Registry registry;
+    return registry;
+  }
+
+  void Declare(const std::string& schema) {
+    std::lock_guard<std::mutex> lock(RegistryMutex());
+    entries_.push_back(OpEntry{ParseOpName(schema), schema, OpKind::kUndefined,
+                               BoxedKernel{}});
+  }
+
+  void RegisterImpl(const std::string& name, BoxedKernel kernel) {
+    std::lock_guard<std::mutex> lock(RegistryMutex());
+    for (OpEntry& entry : entries_) {
+      if (entry.name == name) {
+        entry.kind = OpKind::kBoxed;
+        entry.kernel = std::move(kernel);
+        return;
+      }
+    }
+    entries_.push_back(OpEntry{name, "", OpKind::kBoxed, std::move(kernel)});
+  }
+
+  const OpEntry* Find(const std::string& name) const {
+    for (const OpEntry& entry : entries_) {
+      if (entry.name == name) {
+        return &entry;
+      }
+    }
+    return nullptr;
+  }
+
+  std::vector<OpEntry> List() const {
+    std::lock_guard<std::mutex> lock(RegistryMutex());
+    return entries_;
+  }
+
+ private:
+  Registry() = default;
+
+  std::vector<OpEntry> entries_;
+};
 
 std::mutex& RegistryMutex() {
   static std::mutex mutex;
@@ -59,43 +123,6 @@ int CheckBinaryInputs(const std::string& name, const DynamicValue* inputs,
 
 }  // namespace
 
-Registry& Registry::Instance() {
-  static Registry registry;
-  return registry;
-}
-
-void Registry::Declare(const std::string& schema) {
-  std::lock_guard<std::mutex> lock(RegistryMutex());
-  entries_.push_back(
-      OpEntry{ParseOpName(schema), schema, OpKind::kUndefined, BoxedKernel{}});
-}
-
-void Registry::RegisterImpl(const std::string& name, BoxedKernel kernel) {
-  std::lock_guard<std::mutex> lock(RegistryMutex());
-  for (OpEntry& entry : entries_) {
-    if (entry.name == name) {
-      entry.kind = OpKind::kBoxed;
-      entry.kernel = std::move(kernel);
-      return;
-    }
-  }
-  entries_.push_back(OpEntry{name, "", OpKind::kBoxed, std::move(kernel)});
-}
-
-const OpEntry* Registry::Find(const std::string& name) const {
-  for (const OpEntry& entry : entries_) {
-    if (entry.name == name) {
-      return &entry;
-    }
-  }
-  return nullptr;
-}
-
-std::vector<OpEntry> Registry::List() const {
-  std::lock_guard<std::mutex> lock(RegistryMutex());
-  return entries_;
-}
-
 Library::Library(const std::string& name) : name_(name) {}
 
 void Library::def(const std::string& schema) {
@@ -137,8 +164,6 @@ LibraryRegistrar::LibraryRegistrar(const std::string& name, InitFn init) {
   init(library);
 }
 
-}  // namespace dynamic_ops
-
 extern "C" {
 
 int load_plugin(const char* path, char* error, std::size_t error_size) {
@@ -163,8 +188,7 @@ int call_op(const char* name, const dynamic_ops::DynamicValue* inputs,
     return 0;
   }
 
-  const dynamic_ops::OpEntry* entry =
-      dynamic_ops::Registry::Instance().Find(name);
+  const OpEntry* entry = Registry::Instance().Find(name);
   if (entry == nullptr) {
     dynamic_ops::CopyMessage(std::string("op not found: ") + name, error,
                              error_size);
@@ -182,8 +206,7 @@ int call_op(const char* name, const dynamic_ops::DynamicValue* inputs,
 
 int list_ops(char* output, std::size_t output_size) {
   std::ostringstream stream;
-  const std::vector<dynamic_ops::OpEntry> entries =
-      dynamic_ops::Registry::Instance().List();
+  const std::vector<OpEntry> entries = Registry::Instance().List();
   for (std::size_t i = 0; i < entries.size(); ++i) {
     if (i > 0) {
       stream << "\n";
@@ -195,3 +218,5 @@ int list_ops(char* output, std::size_t output_size) {
   return static_cast<int>(entries.size());
 }
 }
+
+}  // namespace dynamic_ops
