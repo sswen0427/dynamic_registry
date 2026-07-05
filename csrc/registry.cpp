@@ -6,6 +6,7 @@
 #include <cstring>
 #include <mutex>
 #include <sstream>
+#include <stdexcept>
 
 namespace dynamic_ops {
 namespace {
@@ -25,6 +26,14 @@ void CopyMessage(const std::string& message, char* output,
   output[bytes] = '\0';
 }
 
+std::string ParseOpName(const std::string& schema) {
+  const std::size_t args_start = schema.find('(');
+  if (args_start == std::string::npos || args_start == 0) {
+    throw std::invalid_argument("invalid op schema: " + schema);
+  }
+  return schema.substr(0, args_start);
+}
+
 }  // namespace
 
 Registry& Registry::Instance() {
@@ -32,16 +41,19 @@ Registry& Registry::Instance() {
   return registry;
 }
 
-void Registry::RegisterIntBinary(const std::string& name, IntBinaryFn fn) {
+void Registry::RegisterIntBinary(const std::string& name,
+                                 const std::string& schema, IntBinaryFn fn) {
   std::lock_guard<std::mutex> lock(RegistryMutex());
   entries_.push_back(
-      OpEntry{name, OpKind::kIntBinary, reinterpret_cast<void*>(fn)});
+      OpEntry{name, schema, OpKind::kIntBinary, reinterpret_cast<void*>(fn)});
 }
 
-void Registry::RegisterFloatBinary(const std::string& name, FloatBinaryFn fn) {
+void Registry::RegisterFloatBinary(const std::string& name,
+                                   const std::string& schema,
+                                   FloatBinaryFn fn) {
   std::lock_guard<std::mutex> lock(RegistryMutex());
   entries_.push_back(
-      OpEntry{name, OpKind::kFloatBinary, reinterpret_cast<void*>(fn)});
+      OpEntry{name, schema, OpKind::kFloatBinary, reinterpret_cast<void*>(fn)});
 }
 
 const OpEntry* Registry::Find(const std::string& name) const {
@@ -58,14 +70,19 @@ std::vector<OpEntry> Registry::List() const {
   return entries_;
 }
 
-IntBinaryRegistrar::IntBinaryRegistrar(const std::string& name,
-                                       IntBinaryFn fn) {
-  Registry::Instance().RegisterIntBinary(name, fn);
+Library::Library(const std::string& name) : name_(name) {}
+
+void Library::def(const std::string& schema, IntBinaryFn fn) {
+  Registry::Instance().RegisterIntBinary(ParseOpName(schema), schema, fn);
 }
 
-FloatBinaryRegistrar::FloatBinaryRegistrar(const std::string& name,
-                                           FloatBinaryFn fn) {
-  Registry::Instance().RegisterFloatBinary(name, fn);
+void Library::def(const std::string& schema, FloatBinaryFn fn) {
+  Registry::Instance().RegisterFloatBinary(ParseOpName(schema), schema, fn);
+}
+
+LibraryRegistrar::LibraryRegistrar(const std::string& name, InitFn init) {
+  Library library(name);
+  init(library);
 }
 
 }  // namespace dynamic_ops
@@ -147,10 +164,11 @@ int list_ops(char* output, std::size_t output_size) {
     if (i > 0) {
       stream << "\n";
     }
-    stream << entries[i].name << ":"
+    stream << entries[i].name << "\t"
            << (entries[i].kind == dynamic_ops::OpKind::kIntBinary
                    ? "int_binary"
-                   : "float_binary");
+                   : "float_binary")
+           << "\t" << entries[i].schema;
   }
   dynamic_ops::CopyMessage(stream.str(), output, output_size);
   return static_cast<int>(entries.size());

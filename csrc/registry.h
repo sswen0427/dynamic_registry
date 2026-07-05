@@ -7,13 +7,17 @@
 #define DYNAMIC_OPS_CONCAT_IMPL(x, y) x##y
 #define DYNAMIC_OPS_CONCAT(x, y) DYNAMIC_OPS_CONCAT_IMPL(x, y)
 
-#define DYNAMIC_OPS_REGISTER_INT_BINARY(name, fn)              \
-  static ::dynamic_ops::IntBinaryRegistrar DYNAMIC_OPS_CONCAT( \
-      dynamic_ops_int_binary_registrar_, __COUNTER__)((name), (fn))
+#define DYNAMIC_OPS_LIBRARY(name, m) \
+  DYNAMIC_OPS_LIBRARY_IMPL(name, m, __COUNTER__)
 
-#define DYNAMIC_OPS_REGISTER_FLOAT_BINARY(name, fn)              \
-  static ::dynamic_ops::FloatBinaryRegistrar DYNAMIC_OPS_CONCAT( \
-      dynamic_ops_float_binary_registrar_, __COUNTER__)((name), (fn))
+#define DYNAMIC_OPS_LIBRARY_IMPL(name, m, uid)                     \
+  static void DYNAMIC_OPS_CONCAT(dynamic_ops_library_init_,        \
+                                 uid)(::dynamic_ops::Library & m); \
+  static ::dynamic_ops::LibraryRegistrar DYNAMIC_OPS_CONCAT(       \
+      dynamic_ops_library_registrar_, uid)(                        \
+      #name, DYNAMIC_OPS_CONCAT(dynamic_ops_library_init_, uid));  \
+  static void DYNAMIC_OPS_CONCAT(dynamic_ops_library_init_,        \
+                                 uid)(::dynamic_ops::Library & m)
 
 namespace dynamic_ops {
 
@@ -27,6 +31,7 @@ enum class OpKind {
 
 struct OpEntry {
   std::string name;
+  std::string schema;
   OpKind kind;
   void* fn = nullptr;
 };
@@ -35,8 +40,10 @@ class Registry {
  public:
   static Registry& Instance();
 
-  void RegisterIntBinary(const std::string& name, IntBinaryFn fn);
-  void RegisterFloatBinary(const std::string& name, FloatBinaryFn fn);
+  void RegisterIntBinary(const std::string& name, const std::string& schema,
+                         IntBinaryFn fn);
+  void RegisterFloatBinary(const std::string& name, const std::string& schema,
+                           FloatBinaryFn fn);
 
   const OpEntry* Find(const std::string& name) const;
   std::vector<OpEntry> List() const;
@@ -47,14 +54,22 @@ class Registry {
   std::vector<OpEntry> entries_;
 };
 
-class IntBinaryRegistrar {
+class Library {
  public:
-  IntBinaryRegistrar(const std::string& name, IntBinaryFn fn);
+  explicit Library(const std::string& name);
+
+  void def(const std::string& schema, IntBinaryFn fn);
+  void def(const std::string& schema, FloatBinaryFn fn);
+
+ private:
+  std::string name_;
 };
 
-class FloatBinaryRegistrar {
+class LibraryRegistrar {
  public:
-  FloatBinaryRegistrar(const std::string& name, FloatBinaryFn fn);
+  using InitFn = void (*)(Library&);
+
+  LibraryRegistrar(const std::string& name, InitFn init);
 };
 
 }  // namespace dynamic_ops

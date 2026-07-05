@@ -40,7 +40,7 @@ Expected output:
 
 ## User Extension
 
-As a user, write plain C++ functions and register them with macros from
+As a user, write plain C++ functions and register them in a library block from
 `csrc/registry.h` in `extension/custom_ops.cpp`:
 
 ```cpp
@@ -52,8 +52,10 @@ int AddInt(int left, int right) { return left + right; }
 
 float AddFloat(float left, float right) { return left + right; }
 
-DYNAMIC_OPS_REGISTER_INT_BINARY("add_int", AddInt);
-DYNAMIC_OPS_REGISTER_FLOAT_BINARY("add_float", AddFloat);
+DYNAMIC_OPS_LIBRARY(custom_ops, m) {
+  m.def("add_int(int left, int right) -> int", AddInt);
+  m.def("add_float(float left, float right) -> float", AddFloat);
+}
 
 }  // namespace
 ```
@@ -97,7 +99,7 @@ dlopen loads user extension
     |
 global static registrar objects in extension/custom_ops.cpp run
     |
-add_int / add_float are inserted into the C++ registry
+add_int / add_float schemas are inserted into the C++ registry
     |
 Python ops.add_int triggers __getattr__
     |

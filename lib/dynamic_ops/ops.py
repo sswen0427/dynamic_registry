@@ -40,11 +40,11 @@ class Ops:
         return [] if not text else text.splitlines()
 
     def __getattr__(self, name):
-        registered = {item.split(":", 1)[0]: item for item in self.list_ops()}
+        registered = {item.split("\t", 1)[0]: item for item in self.list_ops()}
         if name not in registered:
             raise AttributeError(f"op not found: {name}")
 
-        _, kind = registered[name].split(":", 1)
+        _, kind, _ = registered[name].split("\t", 2)
         return lambda *args: self._call(name, kind, args)
 
     def _configure_c_api(self):
