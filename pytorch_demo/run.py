@@ -8,10 +8,12 @@ EXTENSION = next(ROOT.glob("**/custom_ops_ext*.so"))
 
 torch.ops.load_library(str(EXTENSION))
 
-left = torch.tensor([1, 2, 3])
-right = torch.tensor([10, 20, 30])
+input = torch.tensor([1.0, 2.0, 3.0])
+scale = 10.0
+shift = -3.0
 
-print("registered op: torch.ops.custom_ops.add_tensor")
-print("left =", left)
-print("right =", right)
-print("output =", torch.ops.custom_ops.add_tensor(left, right))
+print("registered op: torch.ops.custom_ops.scale_and_shift")
+print("input =", input)
+print("scale =", scale)
+print("shift =", shift)
+print("output =", torch.ops.custom_ops.scale_and_shift(input, scale, shift))

@@ -24,6 +24,12 @@ sh build.sh
 python3 example.py
 ```
 
+For a step-by-step presentation plan, see [DEMO_GUIDE.md](DEMO_GUIDE.md).
+
+There is also a minimal real PyTorch custom operator demo in
+[`pytorch_demo/`](pytorch_demo/). It uses PyTorch's own `TORCH_LIBRARY`,
+`TORCH_LIBRARY_IMPL`, and `torch.ops.load_library(...)` path.
+
 The build script is a thin wrapper around CMake:
 
 ```bash

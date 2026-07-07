@@ -11,7 +11,7 @@ C++ function
   -> TORCH_LIBRARY_IMPL CPU kernel
   -> compiled .so
   -> torch.ops.load_library(...)
-  -> torch.ops.custom_ops.add_tensor(...)
+  -> torch.ops.custom_ops.scale_and_shift(...)
 ```
 
 ## Build
@@ -41,21 +41,22 @@ python3 setup.py build_ext --inplace
 Expected output:
 
 ```text
-registered op: torch.ops.custom_ops.add_tensor
-left = tensor([1, 2, 3])
-right = tensor([10, 20, 30])
-output = tensor([11, 22, 33])
+registered op: torch.ops.custom_ops.scale_and_shift
+input = tensor([1., 2., 3.])
+scale = 10.0
+shift = -3.0
+output = tensor([ 7., 17., 27.])
 ```
 
 ## Key Code
 
 ```cpp
 TORCH_LIBRARY(custom_ops, module) {
-  module.def("add_tensor(Tensor left, Tensor right) -> Tensor");
+  module.def("scale_and_shift(Tensor input, float scale, float shift) -> Tensor");
 }
 
 TORCH_LIBRARY_IMPL(custom_ops, CPU, module) {
-  module.impl("add_tensor", AddTensorCpu);
+  module.impl("scale_and_shift", ScaleAndShiftCpu);
 }
 ```
 
