@@ -41,10 +41,16 @@ python3 setup.py build_ext --inplace
 Expected output:
 
 ```text
-registered op: torch.ops.custom_ops.scale_and_shift
 input = tensor([1., 2., 3.])
 scale = 10.0
 shift = -3.0
+
+before torch.ops.load_library:
+error = '_OpNamespace' object has no attribute 'scale_and_shift'
+
+load extension: /path/to/pytorch_demo/build/custom_ops_ext.so
+
+after torch.ops.load_library:
 output = tensor([ 7., 17., 27.])
 ```
 
