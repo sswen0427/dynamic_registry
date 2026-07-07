@@ -1,5 +1,5 @@
-from pathlib import Path
 import sys
+from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parent
@@ -17,8 +17,11 @@ def main():
     for op in ops.list_ops():
         print(" ", op)
 
-    print("ops.add_int(1, 2) =", ops.add_int(1, 2))
-    print("ops.add_float(1.5, 2.25) =", ops.add_float(1.5, 2.25))
+    print("ops.custom_ops.add_int(40, 2) =", ops.custom_ops.add_int(40, 2))
+    print(
+        "ops.custom_ops.add_float(0.5, 0.25) =",
+        ops.custom_ops.add_float(0.5, 0.25),
+    )
 
 
 if __name__ == "__main__":

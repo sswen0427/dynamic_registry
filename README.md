@@ -13,7 +13,7 @@ The user provides:
 
 ```text
 extension/custom_ops.cpp    C++ extension with user-defined registered funcs
-example_user_code.py        Python code that loads the plugin and calls ops
+example.py                  Python code that loads the plugin and calls ops
 ```
 
 ## Build And Run
@@ -21,8 +21,14 @@ example_user_code.py        Python code that loads the plugin and calls ops
 ```bash
 cd tools/dynamic_registry_demo
 sh build.sh
-python3 example_user_code.py
+python3 example.py
 ```
+
+For a step-by-step presentation plan, see [DEMO_GUIDE.md](DEMO_GUIDE.md).
+
+There is also a minimal real PyTorch custom operator demo in
+[`pytorch_demo/`](pytorch_demo/). It uses PyTorch's own `TORCH_LIBRARY`,
+`TORCH_LIBRARY_IMPL`, and `torch.ops.load_library(...)` path.
 
 The build script is a thin wrapper around CMake:
 
@@ -34,13 +40,16 @@ cmake --build build
 Expected output:
 
 ```text
-42
-0.75
+registered ops:
+  custom_ops::add_int	boxed	custom_ops::add_int(int left, int right) -> int
+  custom_ops::add_float	boxed	custom_ops::add_float(float left, float right) -> float
+ops.custom_ops.add_int(40, 2) = 42
+ops.custom_ops.add_float(0.5, 0.25) = 0.75
 ```
 
 ## User Extension
 
-As a user, write plain C++ functions and register them with macros from
+As a user, write plain C++ functions and register them in a library block from
 `csrc/registry.h` in `extension/custom_ops.cpp`:
 
 ```cpp
@@ -52,8 +61,13 @@ int AddInt(int left, int right) { return left + right; }
 
 float AddFloat(float left, float right) { return left + right; }
 
-DYNAMIC_OPS_REGISTER_INT_BINARY("add_int", AddInt);
-DYNAMIC_OPS_REGISTER_FLOAT_BINARY("add_float", AddFloat);
+DYNAMIC_OPS_LIBRARY(custom_ops, module) {
+  module.def("add_int(int left, int right) -> int");
+  module.def("add_float(float left, float right) -> float");
+
+  module.impl("add_int", AddInt);
+  module.impl("add_float", AddFloat);
+}
 
 }  // namespace
 ```
@@ -73,11 +87,15 @@ sys.path.insert(0, str(root / "lib"))
 
 from dynamic_ops import Ops
 
-ops = Ops(root / "build/libdynamic_ops_registry.so")
-ops.load_plugin(root / "build/libcustom_ops.so")
+build = root / "build"
+ops = Ops(build / "libdynamic_ops_registry.so")
+ops.load_plugin(build / "libcustom_ops.so")
 
-print(ops.add_int(40, 2))
-print(ops.add_float(0.5, 0.25))
+for op in ops.list_ops():
+    print(op)
+
+print(ops.custom_ops.add_int(40, 2))
+print(ops.custom_ops.add_float(0.5, 0.25))
 ```
 
 Python does not import `add_int` or `add_float` from generated bindings. It
@@ -97,11 +115,17 @@ dlopen loads user extension
     |
 global static registrar objects in extension/custom_ops.cpp run
     |
-add_int / add_float are inserted into the C++ registry
+custom_ops::add_int / custom_ops::add_float schemas are inserted into the C++ registry
     |
-Python ops.add_int triggers __getattr__
+Python ops.custom_ops.add_int triggers __getattr__
     |
 __getattr__ checks C++ registry and returns a callable wrapper
     |
-calling the wrapper invokes the C++ function pointer
+calling the wrapper passes arguments as DynamicValue[]
+    |
+call_op builds a Stack from the inputs
+    |
+boxed kernel mutates Stack from inputs to outputs
+    |
+call_op returns stack[0] as the DynamicValue result
 ```

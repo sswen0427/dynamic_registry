@@ -1,71 +1,123 @@
 #pragma once
 
 #include <cstddef>
+#include <functional>
 #include <string>
+#include <utility>
 #include <vector>
 
 #define DYNAMIC_OPS_CONCAT_IMPL(x, y) x##y
 #define DYNAMIC_OPS_CONCAT(x, y) DYNAMIC_OPS_CONCAT_IMPL(x, y)
 
-#define DYNAMIC_OPS_REGISTER_INT_BINARY(name, fn)                     \
-  static ::dynamic_demo::IntBinaryRegistrar DYNAMIC_OPS_CONCAT(       \
-      dynamic_ops_int_binary_registrar_, __COUNTER__)((name), (fn))
+#define DYNAMIC_OPS_LIBRARY(library_name, module)                              \
+  static void DYNAMIC_OPS_CONCAT(dynamic_ops_library_init_,                    \
+                                 __LINE__)(::dynamic_ops::Library & module);   \
+  static ::dynamic_ops::LibraryRegistrar DYNAMIC_OPS_CONCAT(                   \
+      dynamic_ops_library_registrar_, __LINE__)(                               \
+      #library_name, DYNAMIC_OPS_CONCAT(dynamic_ops_library_init_, __LINE__)); \
+  static void DYNAMIC_OPS_CONCAT(dynamic_ops_library_init_,                    \
+                                 __LINE__)(::dynamic_ops::Library & module)
 
-#define DYNAMIC_OPS_REGISTER_FLOAT_BINARY(name, fn)                   \
-  static ::dynamic_demo::FloatBinaryRegistrar DYNAMIC_OPS_CONCAT(     \
-      dynamic_ops_float_binary_registrar_, __COUNTER__)((name), (fn))
+namespace dynamic_ops {
 
-namespace dynamic_demo {
-
-using IntBinaryFn = int (*)(int, int);
-using FloatBinaryFn = float (*)(float, float);
-
-enum class OpKind {
-  kIntBinary,
-  kFloatBinary,
+enum DynamicScalarKind {
+  DYNAMIC_OPS_INT = 1,
+  DYNAMIC_OPS_FLOAT = 2,
 };
 
-struct OpEntry {
-  std::string name;
-  OpKind kind;
-  void* fn = nullptr;
+struct DynamicValue {
+  int kind;
+  union {
+    int int_value;
+    float float_value;
+  };
 };
 
-class Registry {
+namespace detail {
+
+using Stack = std::vector<DynamicValue>;
+using BoxedKernel = std::function<void(Stack*)>;
+
+template <typename T>
+T ReadValue(const DynamicValue& value);
+
+template <>
+inline int ReadValue<int>(const DynamicValue& value) {
+  return value.int_value;
+}
+
+template <>
+inline float ReadValue<float>(const DynamicValue& value) {
+  return value.float_value;
+}
+
+template <typename T>
+DynamicValue MakeValue(T value);
+
+template <>
+inline DynamicValue MakeValue<int>(int value) {
+  DynamicValue output;
+  output.kind = DYNAMIC_OPS_INT;
+  output.int_value = value;
+  return output;
+}
+
+template <>
+inline DynamicValue MakeValue<float>(float value) {
+  DynamicValue output;
+  output.kind = DYNAMIC_OPS_FLOAT;
+  output.float_value = value;
+  return output;
+}
+
+template <typename Ret, typename... Args, std::size_t... Indices>
+void CallUnboxed(Ret (*fn)(Args...), Stack* stack,
+                 std::index_sequence<Indices...>) {
+  Ret output = fn(ReadValue<Args>(stack->at(Indices))...);
+  stack->clear();
+  stack->push_back(MakeValue<Ret>(output));
+}
+
+template <typename Ret, typename... Args>
+BoxedKernel MakeBoxedKernel(Ret (*fn)(Args...)) {
+  return [fn](Stack* stack) {
+    CallUnboxed(fn, stack, std::index_sequence_for<Args...>{});
+  };
+}
+
+}  // namespace detail
+
+class Library {
  public:
-  static Registry& Instance();
+  explicit Library(const std::string& name);
 
-  void RegisterIntBinary(const std::string& name, IntBinaryFn fn);
-  void RegisterFloatBinary(const std::string& name, FloatBinaryFn fn);
+  void def(const std::string& schema);
 
-  const OpEntry* Find(const std::string& name) const;
-  std::vector<OpEntry> List() const;
+  template <typename Ret, typename... Args>
+  void impl(const std::string& name, Ret (*fn)(Args...)) {
+    RegisterBoxedImpl(name, detail::MakeBoxedKernel(fn));
+  }
 
  private:
-  Registry() = default;
+  void RegisterBoxedImpl(const std::string& name, detail::BoxedKernel kernel);
 
-  std::vector<OpEntry> entries_;
+  std::string name_;
 };
 
-class IntBinaryRegistrar {
+class LibraryRegistrar {
  public:
-  IntBinaryRegistrar(const std::string& name, IntBinaryFn fn);
+  using InitFn = void (*)(Library&);
+
+  LibraryRegistrar(const std::string& name, InitFn init);
 };
 
-class FloatBinaryRegistrar {
- public:
-  FloatBinaryRegistrar(const std::string& name, FloatBinaryFn fn);
-};
-
-}  // namespace dynamic_demo
+}  // namespace dynamic_ops
 
 extern "C" {
 
 int load_plugin(const char* path, char* error, std::size_t error_size);
-int call_int_binary(const char* name, int left, int right, int* output,
-                    char* error, std::size_t error_size);
-int call_float_binary(const char* name, float left, float right, float* output,
-                      char* error, std::size_t error_size);
+int call_op(const char* name, const dynamic_ops::DynamicValue* inputs,
+            std::size_t input_count, dynamic_ops::DynamicValue* output,
+            char* error, std::size_t error_size);
 int list_ops(char* output, std::size_t output_size);
-
 }
