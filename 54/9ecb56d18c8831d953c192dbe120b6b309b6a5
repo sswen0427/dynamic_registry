@@ -1,0 +1,27 @@
+README.md
+  s_167c68883bd1db::t_b144af4f0dc173 27-32
+pytorch_demo/README.md
+  s_167c68883bd1db::t_e305332d221c0c 14,44-48,55,59
+pytorch_demo/custom_ops.cpp
+  s_167c68883bd1db::t_62dcb691fd925d 4-6,10,14
+pytorch_demo/run.py
+  s_167c68883bd1db::t_7bcf876281ad55 11-13,15-19
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.5",
+  "base_commit_sha": "549ecb56d18c8831d953c192dbe120b6b309b6a5",
+  "prompts": {},
+  "sessions": {
+    "s_167c68883bd1db": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f3207-96b3-7311-85ea-53d891227ce0",
+        "model": "unknown"
+      },
+      "human_author": "wensisi <wensisi.0427@bytedance.com>"
+    }
+  },
+  "attestation_metadata": {},
+  "remote_transcripts": {}
+}
