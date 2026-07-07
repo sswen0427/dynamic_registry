@@ -115,9 +115,8 @@ class LibraryRegistrar {
 
 extern "C" {
 
-int load_plugin(const char* path, char* error, std::size_t error_size);
+void load_plugin(const char* path);
 int call_op(const char* name, const dynamic_ops::DynamicValue* inputs,
-            std::size_t input_count, dynamic_ops::DynamicValue* output,
-            char* error, std::size_t error_size);
+            std::size_t input_count, dynamic_ops::DynamicValue* output);
 int list_ops(char* output, std::size_t output_size);
 }

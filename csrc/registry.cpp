@@ -100,16 +100,6 @@ class Registry {
   std::vector<OpEntry> entries_;
 };
 
-void CopyMessage(const std::string& message, char* output,
-                 std::size_t output_size) {
-  if (output == nullptr || output_size == 0) {
-    return;
-  }
-  const std::size_t bytes = std::min(output_size - 1, message.size());
-  std::memcpy(output, message.data(), bytes);
-  output[bytes] = '\0';
-}
-
 const char* KindName(OpKind kind) {
   if (kind == OpKind::kBoxed) {
     return "boxed";
@@ -117,43 +107,11 @@ const char* KindName(OpKind kind) {
   return "undefined";
 }
 
-int CheckBinaryStack(const std::string& name, const Stack& stack,
-                     int expected_kind, char* error, std::size_t error_size) {
-  if (stack.size() != 2) {
-    CopyMessage(std::string("op expects 2 inputs: ") + name, error, error_size);
-    return 0;
-  }
-  if (stack[0].kind != expected_kind || stack[1].kind != expected_kind) {
-    CopyMessage(std::string("op input type mismatch: ") + name, error,
-                error_size);
-    return 0;
-  }
-  return 1;
-}
-
-int RunBoxedKernel(const std::string& name, const OpEntry& entry,
-                   const DynamicValue* inputs, std::size_t input_count,
-                   DynamicValue* output, char* error, std::size_t error_size) {
+void RunBoxedKernel(const OpEntry& entry, const DynamicValue* inputs,
+                    std::size_t input_count, DynamicValue* output) {
   Stack stack(inputs, inputs + input_count);
-
-  if (entry.schema.find("(int ") != std::string::npos) {
-    if (!CheckBinaryStack(name, stack, DYNAMIC_OPS_INT, error, error_size)) {
-      return 0;
-    }
-  } else if (entry.schema.find("(float ") != std::string::npos) {
-    if (!CheckBinaryStack(name, stack, DYNAMIC_OPS_FLOAT, error, error_size)) {
-      return 0;
-    }
-  }
-
   entry.kernel(&stack);
-
-  if (stack.size() != 1) {
-    CopyMessage(std::string("op expects 1 output: ") + name, error, error_size);
-    return 0;
-  }
   *output = stack[0];
-  return 1;
 }
 
 }  // namespace
@@ -176,43 +134,15 @@ LibraryRegistrar::LibraryRegistrar(const std::string& name, InitFn init) {
 
 extern "C" {
 
-int load_plugin(const char* path, char* error, std::size_t error_size) {
-  if (path == nullptr) {
-    dynamic_ops::CopyMessage("plugin path is null", error, error_size);
-    return 0;
-  }
-
-  void* handle = dlopen(path, RTLD_NOW | RTLD_GLOBAL);
-  if (handle == nullptr) {
-    dynamic_ops::CopyMessage(dlerror(), error, error_size);
-    return 0;
-  }
-  return 1;
+void load_plugin(const char* path) {
+  dlopen(path, RTLD_NOW | RTLD_GLOBAL);
 }
 
 int call_op(const char* name, const dynamic_ops::DynamicValue* inputs,
-            std::size_t input_count, dynamic_ops::DynamicValue* output,
-            char* error, std::size_t error_size) {
-  if (name == nullptr || inputs == nullptr || output == nullptr) {
-    dynamic_ops::CopyMessage("invalid op call argument", error, error_size);
-    return 0;
-  }
-
+            std::size_t input_count, dynamic_ops::DynamicValue* output) {
   const OpEntry* entry = Registry::Instance().Find(name);
-  if (entry == nullptr) {
-    dynamic_ops::CopyMessage(std::string("op not found: ") + name, error,
-                             error_size);
-    return 0;
-  }
-
-  if (!entry->kernel) {
-    dynamic_ops::CopyMessage(std::string("op has no implementation: ") + name,
-                             error, error_size);
-    return 0;
-  }
-
-  return RunBoxedKernel(name, *entry, inputs, input_count, output, error,
-                        error_size);
+  RunBoxedKernel(*entry, inputs, input_count, output);
+  return 1;
 }
 
 int list_ops(char* output, std::size_t output_size) {
@@ -225,7 +155,10 @@ int list_ops(char* output, std::size_t output_size) {
     stream << entries[i].name << "\t" << dynamic_ops::KindName(entries[i].kind)
            << "\t" << entries[i].schema;
   }
-  dynamic_ops::CopyMessage(stream.str(), output, output_size);
+  const std::string text = stream.str();
+  const std::size_t bytes = std::min(output_size - 1, text.size());
+  std::memcpy(output, text.data(), bytes);
+  output[bytes] = '\0';
   return static_cast<int>(entries.size());
 }
 }

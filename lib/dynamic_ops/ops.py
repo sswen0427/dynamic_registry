@@ -37,10 +37,7 @@ class Ops:
         self._configure_c_api()
 
     def load_plugin(self, plugin_so: Union[str, Path]):
-        error = ctypes.create_string_buffer(1024)
-        ok = self._lib.load_plugin(str(plugin_so).encode(), error, len(error))
-        if not ok:
-            raise RuntimeError(error.value.decode())
+        self._lib.load_plugin(str(plugin_so).encode())
 
     def list_ops(self):
         output = ctypes.create_string_buffer(4096)
@@ -68,18 +65,14 @@ class Ops:
     def _configure_c_api(self):
         self._lib.load_plugin.argtypes = [
             ctypes.c_char_p,
-            ctypes.c_char_p,
-            ctypes.c_size_t,
         ]
-        self._lib.load_plugin.restype = ctypes.c_int
+        self._lib.load_plugin.restype = None
 
         self._lib.call_op.argtypes = [
             ctypes.c_char_p,
             ctypes.POINTER(_DynamicValue),
             ctypes.c_size_t,
             ctypes.POINTER(_DynamicValue),
-            ctypes.c_char_p,
-            ctypes.c_size_t,
         ]
         self._lib.call_op.restype = ctypes.c_int
 
@@ -89,17 +82,12 @@ class Ops:
     def _call(self, name, schema, args):
         inputs = self._pack_inputs(schema, args)
         output = _DynamicValue()
-        error = ctypes.create_string_buffer(1024)
-        ok = self._lib.call_op(
+        self._lib.call_op(
             name.encode(),
             inputs,
             len(inputs),
             ctypes.byref(output),
-            error,
-            len(error),
         )
-        if not ok:
-            raise RuntimeError(error.value.decode())
         return self._unpack_output(output)
 
     def _pack_inputs(self, schema, args):
