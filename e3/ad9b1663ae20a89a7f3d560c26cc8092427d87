@@ -1,0 +1,25 @@
+.gitignore
+  s_167c68883bd1db::t_986a424da73487 4
+pytorch_demo/README.md
+  s_167c68883bd1db::t_6a9a5a082bd413 21,26,44
+pytorch_demo/run.py
+  s_167c68883bd1db::t_8010d5b7f69c4b 7
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.5",
+  "base_commit_sha": "e3ad9b1663ae20a89a7f3d560c26cc8092427d87",
+  "prompts": {},
+  "sessions": {
+    "s_167c68883bd1db": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f3207-96b3-7311-85ea-53d891227ce0",
+        "model": "unknown"
+      },
+      "human_author": "wensisi <wensisi.0427@bytedance.com>"
+    }
+  },
+  "attestation_metadata": {},
+  "remote_transcripts": {}
+}
