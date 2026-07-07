@@ -4,7 +4,7 @@ import torch
 
 
 ROOT = Path(__file__).resolve().parent
-EXTENSION = next(ROOT.glob("**/custom_ops_ext*.so"))
+EXTENSION = next(ROOT.glob("custom_ops_ext*.so"))
 
 input = torch.tensor([1.0, 2.0, 3.0])
 scale = 10.0

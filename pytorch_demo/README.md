@@ -18,19 +18,12 @@ C++ function
 
 ```bash
 cd pytorch_demo
-/usr/bin/python3 build.py
+/usr/bin/python3 setup.py build_ext --inplace
 ```
 
 This demo uses `/usr/bin/python3` on the current machine because PyTorch is
 installed in that Python 3.9 environment. If your `python3` can import `torch`,
-use `python3 build.py` instead.
-
-`setup.py` is also provided for the standard setuptools-style extension build,
-if your Python environment has `setuptools`:
-
-```bash
-python3 setup.py build_ext --inplace
-```
+use `python3 setup.py build_ext --inplace` instead.
 
 ## Run
 
@@ -48,7 +41,7 @@ shift = -3.0
 before torch.ops.load_library:
 error = '_OpNamespace' object has no attribute 'scale_and_shift'
 
-load extension: /path/to/pytorch_demo/build/custom_ops_ext.so
+load extension: /path/to/pytorch_demo/custom_ops_ext.cpython-...so
 
 after torch.ops.load_library:
 output = tensor([ 7., 17., 27.])
