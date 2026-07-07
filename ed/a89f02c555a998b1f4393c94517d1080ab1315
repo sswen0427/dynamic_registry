@@ -1,0 +1,25 @@
+csrc/registry.cpp
+  s_167c68883bd1db::t_6102788e07b210 110-111,137-138,142,144-145,158-161
+csrc/registry.h
+  s_167c68883bd1db::t_5eeb9f622648f8 118,120
+lib/dynamic_ops/ops.py
+  s_167c68883bd1db::t_94aad8636870ab 40,69,85
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.5",
+  "base_commit_sha": "eda89f02c555a998b1f4393c94517d1080ab1315",
+  "prompts": {},
+  "sessions": {
+    "s_167c68883bd1db": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f3207-96b3-7311-85ea-53d891227ce0",
+        "model": "unknown"
+      },
+      "human_author": "wensisi <wensisi.0427@bytedance.com>"
+    }
+  },
+  "attestation_metadata": {},
+  "remote_transcripts": {}
+}
