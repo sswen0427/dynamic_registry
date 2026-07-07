@@ -1,13 +1,14 @@
 #include <ATen/ATen.h>
 #include <torch/library.h>
 
-at::Tensor ScaleAndShiftCpu(const at::Tensor& input, double scale,
-                            double shift) {
+at::Tensor ScaleAndShiftCpu(const at::Tensor& input, const at::Scalar& scale,
+                            const at::Scalar& shift) {
   return input * scale + shift;
 }
 
 TORCH_LIBRARY(custom_ops, module) {
-  module.def("scale_and_shift(Tensor input, float scale, float shift) -> Tensor");
+  module.def(
+      "scale_and_shift(Tensor input, Scalar scale, Scalar shift) -> Tensor");
 }
 
 TORCH_LIBRARY_IMPL(custom_ops, CPU, module) {

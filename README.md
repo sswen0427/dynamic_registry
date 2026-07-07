@@ -20,7 +20,7 @@ example.py                  Python code that loads the plugin and calls ops
 
 ```bash
 cd tools/dynamic_registry_demo
-sh build.sh
+bash build.sh
 python3 example.py
 ```
 

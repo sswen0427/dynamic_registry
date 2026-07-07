@@ -21,11 +21,32 @@ enum class OpKind {
   kBoxed,
 };
 
-std::mutex& RegistryMutex();
-std::string ParseOpName(const std::string& schema);
-std::string QualifyName(const std::string& library, const std::string& name);
+std::mutex& RegistryMutex() {
+  static std::mutex mutex;
+  return mutex;
+}
+
+std::string ParseOpName(const std::string& schema) {
+  const std::size_t args_start = schema.find('(');
+  if (args_start == std::string::npos || args_start == 0) {
+    throw std::invalid_argument("invalid op schema: " + schema);
+  }
+  return schema.substr(0, args_start);
+}
+
+std::string QualifyName(const std::string& library, const std::string& name) {
+  return library + "::" + name;
+}
+
 std::string QualifySchema(const std::string& library,
-                          const std::string& schema);
+                          const std::string& schema) {
+  const std::size_t args_start = schema.find('(');
+  if (args_start == std::string::npos || args_start == 0) {
+    throw std::invalid_argument("invalid op schema: " + schema);
+  }
+  return QualifyName(library, schema.substr(0, args_start)) +
+         schema.substr(args_start);
+}
 
 struct OpEntry {
   std::string name;
@@ -79,11 +100,6 @@ class Registry {
   std::vector<OpEntry> entries_;
 };
 
-std::mutex& RegistryMutex() {
-  static std::mutex mutex;
-  return mutex;
-}
-
 void CopyMessage(const std::string& message, char* output,
                  std::size_t output_size) {
   if (output == nullptr || output_size == 0) {
@@ -92,28 +108,6 @@ void CopyMessage(const std::string& message, char* output,
   const std::size_t bytes = std::min(output_size - 1, message.size());
   std::memcpy(output, message.data(), bytes);
   output[bytes] = '\0';
-}
-
-std::string ParseOpName(const std::string& schema) {
-  const std::size_t args_start = schema.find('(');
-  if (args_start == std::string::npos || args_start == 0) {
-    throw std::invalid_argument("invalid op schema: " + schema);
-  }
-  return schema.substr(0, args_start);
-}
-
-std::string QualifyName(const std::string& library, const std::string& name) {
-  return library + "::" + name;
-}
-
-std::string QualifySchema(const std::string& library,
-                          const std::string& schema) {
-  const std::size_t args_start = schema.find('(');
-  if (args_start == std::string::npos || args_start == 0) {
-    throw std::invalid_argument("invalid op schema: " + schema);
-  }
-  return QualifyName(library, schema.substr(0, args_start)) +
-         schema.substr(args_start);
 }
 
 const char* KindName(OpKind kind) {

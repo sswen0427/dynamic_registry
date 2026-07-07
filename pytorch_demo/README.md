@@ -51,7 +51,8 @@ output = tensor([ 7., 17., 27.])
 
 ```cpp
 TORCH_LIBRARY(custom_ops, module) {
-  module.def("scale_and_shift(Tensor input, float scale, float shift) -> Tensor");
+  module.def(
+      "scale_and_shift(Tensor input, Scalar scale, Scalar shift) -> Tensor");
 }
 
 TORCH_LIBRARY_IMPL(custom_ops, CPU, module) {
